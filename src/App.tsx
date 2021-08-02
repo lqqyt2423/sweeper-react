@@ -116,6 +116,9 @@ class App extends React.Component<any, IState> {
         this.setCellValue(i, j);
       }
     }
+
+    // console.log(this.cells);
+    // console.log(this.cellStates);
   }
 
   componentDidMount() {
@@ -397,7 +400,7 @@ class App extends React.Component<any, IState> {
         [i + 1, j],
         [i + 1, j + 1]
       ].forEach(([ii, jj]) => {
-        if (ii >= 0 && jj >= 0 && ii < this.rows && jj < this.lines) {
+        if (ii >= 0 && jj >= 0 && ii < this.lines && jj < this.rows) {
           showQueue.push([ii, jj]);
         }
       })
