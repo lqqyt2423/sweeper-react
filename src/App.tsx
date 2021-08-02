@@ -7,6 +7,7 @@ import mineWrongBg from './assets/mine_wrong.svg';
 import faceUnpressedBg from './assets/face_unpressed.svg';
 import facePressedBg from './assets/face_pressed.svg';
 import faceLoseBg from './assets/face_lose.svg';
+import faceWinBg from './assets/face_win.svg';
 import './App.css';
 
 enum CELL_STATE {
@@ -26,6 +27,7 @@ class App extends React.Component {
   private faceUnpressedBgImg: HTMLImageElement;
   private facePressedBgImg: HTMLImageElement;
   private faceLoseBgImg: HTMLImageElement;
+  private faceWinBgImg: HTMLImageElement;
 
   private cellLen = 30;
   private lines = 9;
@@ -39,10 +41,11 @@ class App extends React.Component {
   // @ts-ignore
   private cellStates: CELL_STATE[][];
   private bomb = false;
+  private win = false;
 
   private flags = 0;
   private beginTime = 0;
-  private bombAt = 0;
+  private finishedAt = 0;
   private resetting = 0;
 
   // @ts-ignore
@@ -67,6 +70,7 @@ class App extends React.Component {
     this.faceUnpressedBgImg = new Image();
     this.facePressedBgImg = new Image();
     this.faceLoseBgImg = new Image();
+    this.faceWinBgImg = new Image();
 
     this.initBombs();
   }
@@ -128,6 +132,7 @@ class App extends React.Component {
       afterLoad(this.faceUnpressedBgImg),
       afterLoad(this.facePressedBgImg),
       afterLoad(this.faceLoseBgImg),
+      afterLoad(this.faceWinBgImg),
     ]).then(() => {
       this.drawTop();
       this.draw();
@@ -140,6 +145,7 @@ class App extends React.Component {
     this.faceUnpressedBgImg.src = faceUnpressedBg;
     this.facePressedBgImg.src = facePressedBg;
     this.faceLoseBgImg.src = faceLoseBg;
+    this.faceWinBgImg.src = faceWinBg;
 
     const topStateFn = () => {
       if (this.beginTime === 0) {
@@ -163,10 +169,11 @@ class App extends React.Component {
       if (x > faceX && x < (faceX + faceLen) && y > faceY && y < (faceY + faceLen)) {
         // 重置状态
         this.resetting = Date.now();
+        this.win = false;
         this.bomb = false;
         this.flags = 0;
         this.beginTime = 0;
-        this.bombAt = 0;
+        this.finishedAt = 0;
         this.initBombs();
         this.drawTop();
         this.draw();
@@ -177,18 +184,45 @@ class App extends React.Component {
       event.preventDefault();
     });
 
+    // 全部翻开或标记雷正确才会获胜
+    const tryWin = () => {
+      if (this.bomb || this.win) return;
+
+      for (let i = 0; i < this.lines; i++) {
+        for (let j = 0; j < this.rows; j++) {
+          if (this.cellStates[i][j] === CELL_STATE.HIDE && this.cells[i][j] !== -1) return;
+          if (this.cellStates[i][j] === CELL_STATE.FLAG && this.cells[i][j] !== -1) return;
+        }
+      }
+
+      this.win = true;
+      this.finishedAt = Date.now();
+
+      // 将未标记的雷再标记出来
+      for (let i = 0; i < this.lines; i++) {
+        for (let j = 0; j < this.rows; j++) {
+          if (this.cellStates[i][j] === CELL_STATE.HIDE && this.cells[i][j] === -1) {
+            this.cellStates[i][j] = CELL_STATE.FLAG;
+          }
+        }
+      }
+    };
+
     // https://stackoverflow.com/questions/55677/how-do-i-get-the-coordinates-of-a-mouse-click-on-a-canvas-element
     canvas.addEventListener('click', (event) => {
       topStateFn();
       if (this.bomb) return;
       const [i, j] = this.getCellIndexFromEvent(event);
       this.showCell(i, j);
+      tryWin();
+      this.draw();
     });
 
     canvas.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       topStateFn();
       if (this.bomb) return;
+
       const [i, j] = this.getCellIndexFromEvent(event);
       if (this.cellStates[i][j] === CELL_STATE.SHOW) return;
 
@@ -199,6 +233,7 @@ class App extends React.Component {
         this.cellStates[i][j] = CELL_STATE.FLAG;
         this.flags++;
       }
+      tryWin();
       this.draw();
     });
   }
@@ -218,6 +253,8 @@ class App extends React.Component {
 
     if (this.resetting) {
       ctx.drawImage(this.facePressedBgImg, faceX, faceY, faceLen, faceLen);
+    } else if (this.win) {
+      ctx.drawImage(this.faceWinBgImg, faceX, faceY, faceLen, faceLen);
     } else if (this.bomb) {
       ctx.drawImage(this.faceLoseBgImg, faceX, faceY, faceLen, faceLen);
     } else {
@@ -237,7 +274,7 @@ class App extends React.Component {
     const rightTextInfo = ctx.measureText(rightText);
     ctx.fillText(rightText, this.canvasWidth - rightTextInfo.width - this.cellLen / 2, this.topCanvasHeight / 2 - (this.cellLen * 1.5) / 2);
 
-    const reDraw = (this.beginTime && !this.bomb) || this.resetting;
+    const reDraw = (this.beginTime && !this.bomb && !this.win) || this.resetting;
     if (reDraw) {
       window.requestAnimationFrame(this.drawTop.bind(this));
     }
@@ -329,8 +366,7 @@ class App extends React.Component {
     if (this.cells[x][y] === -1) {
       this.cellStates[x][y] = CELL_STATE.SHOW;
       this.bomb = true;
-      this.bombAt = Date.now();
-      this.draw();
+      this.finishedAt = Date.now();
       return;
     }
 
@@ -355,7 +391,6 @@ class App extends React.Component {
         }
       })
     }
-    this.draw();
   }
 
   getCellIndexFromEvent(event: MouseEvent) {
