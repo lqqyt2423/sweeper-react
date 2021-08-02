@@ -16,7 +16,11 @@ enum CELL_STATE {
   FLAG
 }
 
-class App extends React.Component {
+interface IState {
+  level: 1 | 2 | 3;
+}
+
+class App extends React.Component<any, IState> {
   private topCanvasRef: React.RefObject<HTMLCanvasElement>;
   private canvasRef: React.RefObject<HTMLCanvasElement>;
   private cellBgImg: HTMLImageElement;
@@ -29,13 +33,14 @@ class App extends React.Component {
   private faceLoseBgImg: HTMLImageElement;
   private faceWinBgImg: HTMLImageElement;
 
-  private cellLen = 30;
   private lines = 9;
   private rows = 9;
+  private bombs = 10;
+  private cellLen = 30;
   private canvasWidth = this.cellLen * this.rows;
   private canvasHeight = this.cellLen * this.lines;
   private topCanvasHeight = this.cellLen * 2;
-  private bombs = 10;
+
   // @ts-ignore
   private cells: number[][];
   // @ts-ignore
@@ -56,6 +61,8 @@ class App extends React.Component {
   private canvas: HTMLCanvasElement;
   // @ts-ignore
   private ctx: CanvasRenderingContext2D;
+
+  state: IState = { level: 1 };
 
   constructor(props: any) {
     super(props);
@@ -168,15 +175,7 @@ class App extends React.Component {
       // 是否点击的圆脸区域
       if (x > faceX && x < (faceX + faceLen) && y > faceY && y < (faceY + faceLen)) {
         // 重置状态
-        this.resetting = Date.now();
-        this.win = false;
-        this.bomb = false;
-        this.flags = 0;
-        this.beginTime = 0;
-        this.finishedAt = 0;
-        this.initBombs();
-        this.drawTop();
-        this.draw();
+        this.reset();
       }
     });
 
@@ -236,6 +235,18 @@ class App extends React.Component {
       tryWin();
       this.draw();
     });
+  }
+
+  reset(resetting = true) {
+    if (resetting) this.resetting = Date.now();
+    this.win = false;
+    this.bomb = false;
+    this.flags = 0;
+    this.beginTime = 0;
+    this.finishedAt = 0;
+    this.initBombs();
+    this.drawTop();
+    this.draw();
   }
 
   drawTop() {
@@ -402,10 +413,41 @@ class App extends React.Component {
     return [i, j];
   }
 
+  setLevel(level: 1 | 2 | 3) {
+    if (level === this.state.level) return;
+    if (level === 1) {
+      this.lines = 9;
+      this.rows = 9;
+      this.bombs = 10;
+    } else if (level === 2) {
+      this.lines = 16;
+      this.rows = 16;
+      this.bombs = 40;
+    } else if (level === 3) {
+      this.lines = 16;
+      this.rows = 30;
+      this.bombs = 99;
+    }
+
+    this.canvasWidth = this.cellLen * this.rows;
+    this.canvasHeight = this.cellLen * this.lines;
+
+    this.setState({ level }, () => {
+      this.reset(false);
+    })
+  }
+
   render() {
+    const { level } = this.state;
+
     return (
       <div className="App">
         <p>扫雷</p>
+        <p>
+          <span onClick={() => { this.setLevel(1); }} style={{ marginRight: '20px', cursor: 'pointer' }} className={level === 1 ? 'level-selected' : undefined}>初级</span>
+          <span onClick={() => { this.setLevel(2); }} style={{ marginRight: '20px', cursor: 'pointer' }} className={level === 2 ? 'level-selected' : undefined}>中级</span>
+          <span onClick={() => { this.setLevel(3); }} style={{ cursor: 'pointer' }} className={level === 3 ? 'level-selected' : undefined}>高级</span>
+        </p>
         <div>
           <div
             style={{
